@@ -4,7 +4,7 @@ Windows helper scripts and keybindings for the [Yazi](https://yazi-rs.github.io/
 
 This package is designed for normal Windows user accounts. It installs helper PowerShell scripts into your user profile and can optionally add the included keybindings to your Yazi config.
 
-## Easy Install
+## Simple Install Method
 
 1. Extract the ZIP.
 2. Double-click:
@@ -33,7 +33,7 @@ From the extracted package folder:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1
 ```
 
-Useful installer flags:
+Installer flags:
 
 ```powershell
 # Preview what would happen without changing files
@@ -57,7 +57,7 @@ If Yazi is missing, the installer can install it using winget:
 winget install --id sxyazi.yazi -e
 ```
 
-The installer can also ask to install recommended optional dependencies:
+The installer will also ask to install recommended optional dependencies:
 
 ```powershell
 winget install --id Gyan.FFmpeg -e
@@ -71,11 +71,12 @@ winget install --id ajeetdsouza.zoxide -e
 winget install --id ImageMagick.ImageMagick -e
 ```
 
-These tools improve previews, archive extraction, searching, navigation, and image handling in Yazi.
 
 ## Office Template Files
 
 The `new-office-file.ps1` helper creates new Office files by copying blank template files.
+
+You will need to create these template files.
 
 After installation, place these files in:
 
@@ -83,7 +84,7 @@ After installation, place these files in:
 %USERPROFILE%\User-Templates
 ```
 
-Required filenames:
+Manually create these files:
 
 ```txt
 blank.docx
@@ -91,7 +92,6 @@ blank.xlsx
 blank.pptx
 ```
 
-Tip: Open Word, Excel, or PowerPoint, create a new blank document, and save it into that folder using the exact required name.
 
 ## Installed Helper Scripts
 
@@ -205,9 +205,8 @@ Useful Yazi links:
 - Yazi GitHub repository: https://github.com/sxyazi/yazi
 - WinGet documentation: https://learn.microsoft.com/windows/package-manager/winget/
 
-## Notes
+## Additional Consideration
 
-- This package is Windows-only.
-- Do not run the installer as `NT AUTHORITY\SYSTEM`.
-- If PowerShell opens in `C:\Windows\System32`, run the included `.bat` launcher from the extracted package folder instead.
+- This package is Windows-only as it is powershell focused.
+- If PowerShell opens in `C:\Windows\System32`, run the included `.bat` launcher as a user account instead.
 - After installing Yazi or dependencies with winget, close and reopen your terminal if commands are not immediately found.
