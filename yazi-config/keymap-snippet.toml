@@ -1,0 +1,67 @@
+# >>> Yazi Windows Scripts keybindings >>>
+# Managed by the Yazi Windows Scripts installer.
+# These bindings expect helper scripts to be installed at:
+# %USERPROFILE%\Scripts
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "d" ]
+run  = 'cd "%USERPROFILE%\\Downloads"'
+desc = "Go to Downloads"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "z" ]
+run  = 'cd "%USERPROFILE%\\Documents"'
+desc = "Go to Documents"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "p" ]
+run  = 'cd "%USERPROFILE%\\Scripts"'
+desc = "Go to Scripts"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "s" ]
+run  = 'cd "%APPDATA%\\yazi\\config"'
+desc = "Go to Yazi settings"
+
+[[mgr.prepend_keymap]]
+on   = [ "n", "x" ]
+run  = 'shell "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\Scripts\\new-office-file.ps1\" -Type xlsx" --block'
+desc = "Create new Excel workbook"
+
+[[mgr.prepend_keymap]]
+on   = [ "n", "w" ]
+run  = 'shell "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\Scripts\\new-office-file.ps1\" -Type docx" --block'
+desc = "Create new Word document"
+
+[[mgr.prepend_keymap]]
+on   = [ "n", "p" ]
+run  = 'shell "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\Scripts\\new-office-file.ps1\" -Type pptx" --block'
+desc = "Create new PowerPoint presentation"
+
+[[mgr.prepend_keymap]]
+on   = [ "R" ]
+run  = 'rename --empty=stem --cursor=start'
+desc = "Rename filename without changing extension"
+
+[[mgr.prepend_keymap]]
+on   = [ "u", "z" ]
+run  = [
+  '''shell -- powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$temp = Join-Path $env:TEMP 'archive_to_decompress.txt'; [System.IO.File]::WriteAllText($temp, '%H', [System.Text.UTF8Encoding]::new($false))"''',
+  '''shell --block -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\\Scripts\\yazi-extract-from-temp.ps1"''',
+]
+desc = "Extract hovered archive using temp file"
+
+[[mgr.prepend_keymap]]
+on   = [ "u", "o" ]
+run  = 'shell -- explorer .'
+desc = "Open current directory in Explorer"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "a" ]
+run  = [
+  '''shell --block -- powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$temp = Join-Path $env:TEMP 'yazi_file_to_copy.txt'; [System.IO.File]::WriteAllText($temp, '%H', [System.Text.UTF8Encoding]::new($false))"''',
+  '''shell --block -- powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "%USERPROFILE%\\Scripts\\yazi-copy-actual-file.ps1"'''
+]
+desc = "Copy actual hovered file to clipboard"
+
+# <<< Yazi Windows Scripts keybindings <<<

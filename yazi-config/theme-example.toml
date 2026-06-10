@@ -1,0 +1,9 @@
+# Example only.
+# Copy this to:
+# %APPDATA%\yazi\config\theme.toml
+# after installing a matching flavor into:
+# %APPDATA%\yazi\config\flavors
+
+[flavor]
+dark  = "catppuccin-mocha"
+light = "catppuccin-latte"
