@@ -3,13 +3,15 @@ setlocal
 
 cd /d "%~dp0"
 
-echo Starting Yazi Windows Scripts installer...
+echo Starting combined Yazi setup and launcher installer...
 echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0yazi-installer.ps1"
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0yazi-installer.ps1" -InstallYazi -InstallDependencies %*
+set "result=%ERRORLEVEL%"
 
 echo.
-echo Installer finished.
+echo Installer exited with code %result%.
 echo Review any messages above before closing this window.
 echo.
 pause
+exit /b %result%

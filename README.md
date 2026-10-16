@@ -1,212 +1,150 @@
-# Yazi Windows Scripts
+# Yazi Setup + Launcher
 
-Windows helper scripts and keybindings for the [Yazi](https://yazi-rs.github.io/) terminal file manager.
+One project for Windows and Linux: Yazi dependencies, custom keybindings, ZIP
+creation/extraction, and an application launcher. The Windows launcher source
+and icon are included under `launcher/windows`; the separate launcher project
+is no longer needed to install this package.
 
-This package is designed for normal Windows user accounts. It installs helper PowerShell scripts into your user profile and can optionally add the included keybindings to your Yazi config.
+Requires **Python 3.10+** and **Yazi 26.9.1 or newer** for the bundled plugin API.
+No pip packages are required. Run setup as your normal user. Linux package
+installation uses sudo; Windows package installers may request elevation.
 
-## Simple Install Method
+## Windows
 
-1. Extract the ZIP.
-2. Double-click:
+1. Extract or clone this project.
+2. If Python is missing, run `winget install -e --id Python.Python.3.13`, then
+   reopen your terminal.
+3. Double-click **Install Yazi Scripts.bat**. It installs missing Yazi and
+   dependency packages, adds the configuration, builds the launcher, and creates
+   **Yazi Launcher** in Start.
+4. Close and reopen your terminal / sign out and back in to refresh environment
+   variables, then launch **Yazi Launcher**. Pin its Start shortcut to the taskbar.
 
-```txt
-Install Yazi Scripts.bat
-```
-
-The installer will:
-
-- Create `%USERPROFILE%\Scripts`
-- Create `%USERPROFILE%\User-Templates`
-- Create `%APPDATA%\yazi\config`
-- Create `%APPDATA%\yazi\config\flavors`
-- Copy the helper scripts into `%USERPROFILE%\Scripts`
-- Ask to install Yazi if it is missing
-- Ask to install recommended Yazi dependencies
-- Safely add the keybindings to `keymap.toml`
-- Open the template folder so you can add blank Office templates
-
-## Manual Install Command
-
-From the extracted package folder:
+Equivalent command from the project directory:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1 -InstallYazi -InstallDependencies
 ```
 
-Installer flags:
+Windows Terminal and .NET Framework's C# compiler are needed for the launcher.
+The installer uses winget for Terminal, Yazi, Git for Windows, 7-Zip, FFmpeg, jq,
+Poppler, fd, ripgrep, fzf, zoxide, and ImageMagick when commands are missing.
+It adds the standard 7-Zip directory to your user PATH and configures
+`YAZI_FILE_ONE` when Git is in its standard Program Files location. With a custom
+Git installation, set that variable to its `usr\bin\file.exe` yourself.
 
-```powershell
-# Preview what would happen without changing files
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1 -DryRun
+The launcher retains its separate Windows taskbar identity, custom icon, new
+Terminal window behavior, and logging at `%LOCALAPPDATA%\YaziLauncher\launcher.log`.
+Setup does not open Yazi automatically.
 
-# Install Yazi without prompting, if missing
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1 -InstallYazi
+## Linux
 
-# Install recommended dependencies without prompting
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1 -InstallDependencies
+Install Python 3.10+ using your distribution's package manager, then run:
 
-# Install scripts but skip keymap changes
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\yazi-installer.ps1 -SkipKeymap
+```sh
+sh ./install.sh --install-yazi --install-dependencies
 ```
 
-## Yazi Installation
+Automatic package installation supports Debian/Ubuntu (`apt-get`), Fedora
+(`dnf`), and Arch (`pacman`). Debian/Ubuntu setup adds the official Yazi stable
+APT repository, which publishes amd64/arm64 builds. Fedora needs a repository
+providing Yazi enabled first; see the official installation guide below. Other
+distributions can install Yazi and dependencies manually, then run:
 
-If Yazi is missing, the installer can install it using winget:
-
-```powershell
-winget install --id sxyazi.yazi -e
+```sh
+sh ./install.sh
 ```
 
-The installer will also ask to install recommended optional dependencies:
+Run setup as your normal user, not through `sudo`; it asks sudo only for package
+and APT repository changes. The application menu entry uses your desktop's
+configured terminal. On a headless machine, run `yazi` in your existing terminal.
+You can also run `~/.local/bin/yazi-launcher [directory]`.
 
-```powershell
-winget install --id Gyan.FFmpeg -e
-winget install --id 7zip.7zip -e
-winget install --id jqlang.jq -e
-winget install --id oschwartz10612.Poppler -e
-winget install --id sharkdp.fd -e
-winget install --id BurntSushi.ripgrep.MSVC -e
-winget install --id junegunn.fzf -e
-winget install --id ajeetdsouza.zoxide -e
-winget install --id ImageMagick.ImageMagick -e
+Dependencies include file, 7-Zip, zip/unzip, FFmpeg, jq, Poppler, fd, ripgrep,
+fzf, zoxide, ImageMagick, xdg-utils, and X11/Wayland clipboard tools. Setup supplies
+an `fd` wrapper on distributions that call it `fdfind`. Add `~/.local/bin` to your
+PATH to use that wrapper when launching Yazi directly; the launcher adds it.
+SVG preview needs **resvg**, installed automatically on Arch; install it
+separately on other distributions. Windows winget does not currently provide
+resvg. A Nerd Font is also recommended for icons.
+
+## Keys
+
+Default Yazi bindings remain available. These bindings take precedence:
+
+| Key | Action |
+| --- | --- |
+| `c z` | Create ZIP from selected files/directories, or the hovered item |
+| `u z` | Extract hovered ZIP into a new folder |
+| `g d` | Downloads |
+| `g z` | Documents |
+| `g s` | Yazi configuration |
+| `R` | Rename filename, keeping its extension |
+| `u o` | Open the current directory in the desktop file manager |
+| `g p` | Helper scripts (Windows) |
+| `n x`, `n w`, `n p` | New Excel, Word, PowerPoint from templates (Windows) |
+| `c a` | Copy the actual hovered file to Windows clipboard |
+
+ZIP actions prompt inside Yazi for a new filename or destination folder, relative
+to the current directory (absolute paths also work). For ZIP creation, include
+`.zip` in the name. Existing files and folders are never overwritten. Nested and
+empty directories and Unicode names are supported. Symbolic links and unsafe
+ZIP paths are rejected. Standard ZIP files are supported, including ZIP64;
+encrypted ZIPs and other archive formats are outside these custom ZIP actions.
+Yazi's built-in archive browsing/opening still uses 7-Zip for other formats.
+
+Office shortcuts require your own blank `blank.xlsx`, `blank.docx`, and
+`blank.pptx` in `%USERPROFILE%\User-Templates`. Existing Windows helper scripts
+remain in `scripts`; they are copied to `%USERPROFILE%\Scripts`. The old
+`yazi-extract-from-temp.ps1` remains for manual legacy use, but the new unzip
+binding uses the bundled plugin instead.
+
+## Configuration and updates
+
+Configuration goes to `%APPDATA%\yazi\config` on Windows and
+`${XDG_CONFIG_HOME:-~/.config}/yazi` on Linux. `YAZI_CONFIG_HOME` overrides either.
+Changed files receive timestamped `.backup-*` copies. Rerunning setup updates
+its managed keymap block (including migrating the old Windows Scripts block),
+keeps other keymap entries, and avoids duplicate blocks. Partial/duplicate
+managed markers stop setup with a repair message. Check existing custom keys
+for conflicts with the table above.
+
+Useful options, passed to `python setup.py` or `sh ./install.sh`:
+
+```sh
+python setup.py --dry-run
+python setup.py --skip-launcher
+python setup.py --skip-keymap
 ```
 
+The PowerShell wrapper also accepts `-DryRun`, `-SkipLauncher`, and `-SkipKeymap`.
+Without install flags, setup changes configuration/launcher files only. Package
+install flags install missing tools and update Yazi if it is below the required
+version. Other existing dependencies are left at their installed versions.
+The final dependency report lists missing tools. Preview tools are optional for
+ZIP creation/extraction, which uses the Python interpreter recorded at install
+time. Rerun setup if Python is moved or removed. Theme setup is optional; see
+`yazi-config/theme-example.toml` and install matching flavors before enabling it.
 
-## Office Template Files
+To remove only the Windows launcher, run
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\windows\uninstall.ps1`
+and unpin it manually. On Linux remove `~/.local/bin/yazi-launcher` and
+`${XDG_DATA_HOME:-~/.local/share}/applications/yazi-launcher.desktop`.
+To undo configuration changes, restore the backups or remove the marked keymap
+block and `plugins/setup-archive.yazi`. Dependencies remain installed.
 
-The `new-office-file.ps1` helper creates new Office files by copying blank template files.
+## Verification
 
-You will need to create these template files.
-
-After installation, place these files in:
-
-```txt
-%USERPROFILE%\User-Templates
+```sh
+python -m unittest discover -s tests -v
 ```
 
-Manually create these files:
+Tests use Python 3.11+ for TOML validation. They cover ZIP round trips, overwrite
+refusal, unsafe ZIP paths, Unicode filenames, keymap migration and repeatability,
+and both platforms' generated configuration. CI runs these on Windows and Linux
+and compiles the Windows launcher. GUI/taskbar behavior and native package
+installation should also be checked on the target machine.
 
-```txt
-blank.docx
-blank.xlsx
-blank.pptx
-```
-
-
-## Installed Helper Scripts
-
-The installer copies these files to `%USERPROFILE%\Scripts`:
-
-```txt
-new-office-file.ps1
-move-most-recent-file.ps1
-move-png-from-downloads.ps1
-yazi-copy-actual-file.ps1
-yazi-extract-from-temp.ps1
-```
-
-## Keybindings
-
-The installer can add the included keybindings to:
-
-```txt
-%APPDATA%\yazi\config\keymap.toml
-```
-
-If `keymap.toml` already exists, the installer creates a timestamped backup before appending the managed block.
-
-The managed block is marked with:
-
-```toml
-# >>> Yazi Windows Scripts keybindings >>>
-# <<< Yazi Windows Scripts keybindings <<<
-```
-
-This prevents duplicate installs if you run the installer again.
-
-Included bindings:
-
-| Binding | Action |
-|---|---|
-| `g d` | Go to Downloads |
-| `g z` | Go to Documents |
-| `g p` | Go to Scripts |
-| `g s` | Go to Yazi settings |
-| `n x` | Create new Excel workbook |
-| `n w` | Create new Word document |
-| `n p` | Create new PowerPoint presentation |
-| `R` | Rename filename without changing extension |
-| `u z` | Extract hovered archive |
-| `u o` | Open current directory in Explorer |
-| `c a` | Copy actual hovered file to Windows clipboard |
-
-## Themes and Flavors
-
-Yazi supports custom colors through `theme.toml` and pre-made themes called **flavors**.
-
-On Windows, Yazi config files are stored here:
-
-```txt
-%APPDATA%\yazi\config
-```
-
-Flavors should be installed into:
-
-```txt
-%APPDATA%\yazi\config\flavors
-```
-
-Example structure:
-
-```txt
-%APPDATA%\yazi\config\
-├─ theme.toml
-└─ flavors\
-   └─ catppuccin-mocha.yazi\
-      ├─ flavor.toml
-      ├─ tmtheme.xml
-      ├─ README.md
-      └─ preview.png
-```
-
-To enable a flavor, edit:
-
-```txt
-%APPDATA%\yazi\config\theme.toml
-```
-
-Example:
-
-```toml
-[flavor]
-dark  = "catppuccin-mocha"
-light = "catppuccin-latte"
-```
-
-A sample file is included at:
-
-```txt
-yazi-config\theme-example.toml
-```
-
-The installer creates the `flavors` folder, but it does not install a theme by default.
-
-## Official Yazi Documentation
-
-Useful Yazi links:
-
-- Official Yazi site/docs: https://yazi-rs.github.io/
-- Installation guide: https://yazi-rs.github.io/docs/installation/
-- Configuration overview: https://yazi-rs.github.io/docs/configuration/overview/
-- Keymap documentation: https://yazi-rs.github.io/docs/configuration/keymap/
-- Theme documentation: https://yazi-rs.github.io/docs/configuration/theme/
-- Flavors overview: https://yazi-rs.github.io/docs/flavors/overview/
-- Official flavors repository: https://github.com/yazi-rs/flavors
-- Yazi GitHub repository: https://github.com/sxyazi/yazi
-- WinGet documentation: https://learn.microsoft.com/windows/package-manager/winget/
-
-## Additional Consideration
-
-- This package is Windows-only as it is powershell focused.
-- If PowerShell opens in `C:\Windows\System32`, run the included `.bat` launcher as a user account instead.
-- After installing Yazi or dependencies with winget, close and reopen your terminal if commands are not immediately found.
+References: [Yazi installation](https://yazi-rs.github.io/docs/installation/),
+[keymap reference](https://yazi-rs.github.io/docs/configuration/keymap/), and
+[plugin API](https://yazi-rs.github.io/docs/plugins/utils/).

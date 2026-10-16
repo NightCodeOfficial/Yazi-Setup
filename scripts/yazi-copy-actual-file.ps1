@@ -1,27 +1,5 @@
+param([Parameter(Mandatory = $true)][string]$FilePath)
 $ErrorActionPreference = "Stop"
-
-$TempFile = Join-Path $env:TEMP "yazi_file_to_copy.txt"
-
-if (-not (Test-Path -LiteralPath $TempFile)) {
-    Write-Host "Temp file not found:"
-    Write-Host $TempFile
-    exit 1
-}
-
-$FileUrl = Get-Content -LiteralPath $TempFile -Raw
-$FileUrl = $FileUrl.Trim()
-
-if ([string]::IsNullOrWhiteSpace($FileUrl)) {
-    Write-Host "Temp file was empty."
-    exit 1
-}
-
-if ($FileUrl -match '^file:') {
-    $FilePath = ([System.Uri]$FileUrl).LocalPath
-}
-else {
-    $FilePath = $FileUrl
-}
 
 if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) {
     Write-Host "File not found:"
