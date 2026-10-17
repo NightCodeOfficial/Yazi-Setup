@@ -17,3 +17,6 @@ jobs:
       - if: runner.os == 'Windows'
         shell: powershell
         run: ./launcher/windows/build.ps1
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/check-windows.ps1

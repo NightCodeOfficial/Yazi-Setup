@@ -4,6 +4,8 @@ param(
     [string]$Type
 )
 
+$ErrorActionPreference = 'Stop'
+
 $templateFolder = Join-Path $env:USERPROFILE "User-Templates"
 
 $templateMap = @{
@@ -24,7 +26,7 @@ $templateMap = @{
 $template = $templateMap[$Type].Template
 $label = $templateMap[$Type].Label
 
-if (-not (Test-Path $template)) {
+if (-not (Test-Path -LiteralPath $template -PathType Leaf)) {
     Write-Host "Template not found: $template"
     Read-Host "Press Enter to exit"
     exit 1
@@ -39,18 +41,24 @@ if ([string]::IsNullOrWhiteSpace($name)) {
 }
 
 # If user typed the extension, remove it so we can add the correct one cleanly.
-$name = [System.IO.Path]::GetFileNameWithoutExtension($name)
+$name = [System.IO.Path]::GetFileName($name)
+if ($name.EndsWith(".$Type", [StringComparison]::OrdinalIgnoreCase)) {
+    $name = $name.Substring(0, $name.Length - $Type.Length - 1)
+}
+if ([string]::IsNullOrWhiteSpace($name) -or $name.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0) {
+    throw 'Enter a valid filename.'
+}
 
 $targetName = "$name.$Type"
 $target = Join-Path (Get-Location) $targetName
 
-if (Test-Path $target) {
+if (Test-Path -LiteralPath $target) {
     Write-Host "File already exists: $target"
     Read-Host "Press Enter to exit"
     exit 1
 }
 
-Copy-Item $template $target
+[IO.File]::Copy($template, $target, $false)
 
 Write-Host "Created: $target"
 Start-Sleep -Milliseconds 700

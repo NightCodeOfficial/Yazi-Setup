@@ -5,7 +5,7 @@ creation/extraction, and an application launcher. The Windows launcher source
 and icon are included under `launcher/windows`; the separate launcher project
 is no longer needed to install this package.
 
-Requires **Python 3.10+** and **Yazi 26.9.1 or newer** for the bundled plugin API.
+Requires **Python 3.11+** and **Yazi 26.9.1 or newer** for the bundled plugin API.
 No pip packages are required. Run setup as your normal user. Linux package
 installation uses sudo; Windows package installers may request elevation.
 
@@ -39,7 +39,7 @@ Setup does not open Yazi automatically.
 
 ## Linux
 
-Install Python 3.10+ using your distribution's package manager, then run:
+Install Python 3.11+ using your distribution's package manager, then run:
 
 ```sh
 sh ./install.sh --install-yazi --install-dependencies
@@ -106,7 +106,10 @@ Configuration goes to `%APPDATA%\yazi\config` on Windows and
 Changed files receive timestamped `.backup-*` copies. Rerunning setup updates
 its managed keymap block (including migrating the old Windows Scripts block),
 keeps other keymap entries, and avoids duplicate blocks. Partial/duplicate
-managed markers stop setup with a repair message. Check existing custom keys
+managed markers or invalid TOML stop setup before configuration files are written.
+For an existing `[mgr] prepend_keymap = [...]` inline array, convert its entries
+to `[[mgr.prepend_keymap]]` tables before merging, or use `--skip-keymap`.
+Check existing custom keys
 for conflicts with the table above.
 
 Useful options, passed to `python setup.py` or `sh ./install.sh`:
@@ -135,6 +138,14 @@ block and `plugins/setup-archive.yazi`. Dependencies remain installed.
 
 ## Verification
 
+If winget reports `InternetOpenUrl() failed` with `0x80072ee7`, it could not
+resolve the download server name. Check the connection, DNS, VPN or proxy and
+retry. Setup detects 7-Zip in standard Program Files locations even when it is
+absent from PATH, so an installed copy does not need downloading again.
+Optional package failures allow configuration and launcher setup to continue;
+the final report prints retry commands and setup exits with code 2 for incomplete
+dependencies. Failures installing Yazi or Windows Terminal still stop setup.
+
 ```sh
 python -m unittest discover -s tests -v
 ```
@@ -142,7 +153,9 @@ python -m unittest discover -s tests -v
 Tests use Python 3.11+ for TOML validation. They cover ZIP round trips, overwrite
 refusal, unsafe ZIP paths, Unicode filenames, keymap migration and repeatability,
 and both platforms' generated configuration. CI runs these on Windows and Linux
-and compiles the Windows launcher. GUI/taskbar behavior and native package
+and compiles the Windows launcher. Windows checks also exercise helper scripts
+with dots/brackets in filenames and validate launcher argument quoting.
+GUI/taskbar behavior and native package
 installation should also be checked on the target machine.
 
 References: [Yazi installation](https://yazi-rs.github.io/docs/installation/),

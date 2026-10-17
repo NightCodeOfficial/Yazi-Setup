@@ -35,9 +35,9 @@ return {
       pos = { "top-center", y = 3, w = 60 },
     }
     if event ~= 1 or not value or value == "" then return end
-    local args = { runtime.script, action, value }
+    local args = { runtime.script, action, "--", value }
     for _, path in ipairs(paths) do args[#args + 1] = path end
-    local output, err = Command(runtime.python):arg(args):cwd(cwd):output()
+    local output, err = Command(runtime.python):arg(args):env("PYTHONUTF8", "1"):cwd(cwd):output()
     ya.notify {
       title = "Yazi archives",
       content = output and (output.status.success and output.stdout or output.stderr) or tostring(err),

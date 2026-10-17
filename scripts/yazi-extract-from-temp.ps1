@@ -66,7 +66,9 @@ if ($Confirm -notmatch '^(y|yes)$') {
     exit 0
 }
 
-New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+if (Test-Path -LiteralPath $OutputDir) {
+    throw "Destination already exists: $OutputDir"
+}
 
 $SevenZip = Get-Command 7z -ErrorAction SilentlyContinue
 if ($SevenZip) {
@@ -85,6 +87,10 @@ else {
 }
 
 & $SevenZipPath x "$ArchivePath" "-o$OutputDir" -y
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "7-Zip extraction failed (exit code $LASTEXITCODE). Partial files may remain in $OutputDir."
+    exit 1
+}
 
 Write-Host ""
 Write-Host "Extracted to:"

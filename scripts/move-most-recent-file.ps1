@@ -9,8 +9,13 @@ param (
     [Parameter(Mandatory = $false)][string]$NewFileName
 )
 
+$ErrorActionPreference = 'Stop'
+if ($NewFileName -and ($NewFileName -in @('.', '..') -or $NewFileName.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0)) {
+    throw 'NewFileName must be a filename without directory separators.'
+}
+
 function Resolve-Paths {
-    if ((Test-Path $SourceDirectory -PathType Container) -and (Test-Path $DestinationDirectory -PathType Container)) {
+    if ((Test-Path -LiteralPath $SourceDirectory -PathType Container) -and (Test-Path -LiteralPath $DestinationDirectory -PathType Container)) {
         return $true
     }
     else {
@@ -23,7 +28,7 @@ function Resolve-Paths {
 function Find-Most-Recent-File-In-Dir {
     $cleanFileType = $FileType.TrimStart(".")
     $filterString = "*." + $cleanFileType 
-    $latestFile = Get-ChildItem -Path $SourceDirectory -Filter $filterString -File | 
+    $latestFile = Get-ChildItem -LiteralPath $SourceDirectory -Filter $filterString -File |
     Sort-Object LastWriteTime -Descending | 
     Select-Object -First 1
     if ($latestFile) {
@@ -55,7 +60,7 @@ function Main {
             $destination = Get-Destination $sourceFile
 
             # Check if this would overrite a file
-            if (Test-Path $destination -PathType Leaf) {
+            if (Test-Path -LiteralPath $destination) {
                 $Title = "Confirmation"
                 $Message = "The destination file already exists. Do you want to overwrite it?"
                 $Options = @(
@@ -74,7 +79,7 @@ function Main {
             }
 
 
-            Move-Item -Path $sourceFile.FullName -Destination $destination -Force
+            Move-Item -LiteralPath $sourceFile.FullName -Destination $destination -Force
         }
         else {
             Write-Host "No valid source file of the given extension"

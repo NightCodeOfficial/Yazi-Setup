@@ -15,11 +15,14 @@ $python = $null
 foreach ($candidate in @('python.exe', 'python3.exe', 'py.exe')) {
     $command = Get-Command $candidate -ErrorAction SilentlyContinue
     if (-not $command) { continue }
-    & $command.Source -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>$null
-    if ($LASTEXITCODE -eq 0) { $python = $command.Source; break }
+    try {
+        & $command.Source -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' 2>$null
+        if ($LASTEXITCODE -eq 0) { $python = $command.Source; break }
+    }
+    catch { continue }
 }
 if (-not $python) {
-    throw 'Python 3.10+ is required. Run: winget install -e --id Python.Python.3.13 --source winget. Reopen your terminal, then rerun this installer.'
+    throw 'Python 3.11+ is required. Run: winget install -e --id Python.Python.3.13 --source winget. Reopen your terminal, then rerun this installer.'
 }
 $arguments = @((Join-Path $PSScriptRoot 'setup.py'))
 if ($InstallYazi) { $arguments += '--install-yazi' }

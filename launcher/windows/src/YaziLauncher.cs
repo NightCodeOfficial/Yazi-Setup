@@ -678,7 +678,31 @@ namespace YaziLauncher
 
         private static string Quote(string value)
         {
-            return "\"" + value.Replace("\"", "\\\"") + "\"";
+            // CommandLineToArgvW rules: backslashes before quotes and at the
+            // closing quote must be doubled; other path separators stay literal.
+            StringBuilder result = new StringBuilder("\"");
+            int slashes = 0;
+            foreach (char character in value)
+            {
+                if (character == '\\')
+                {
+                    slashes++;
+                    continue;
+                }
+                if (character == '"')
+                {
+                    result.Append('\\', slashes * 2 + 1);
+                }
+                else
+                {
+                    result.Append('\\', slashes);
+                }
+                result.Append(character);
+                slashes = 0;
+            }
+            result.Append('\\', slashes * 2);
+            result.Append('"');
+            return result.ToString();
         }
 
         private static string QuotePowerShellLiteral(string value)

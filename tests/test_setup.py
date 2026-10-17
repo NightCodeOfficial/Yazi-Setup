@@ -9,6 +9,8 @@ import tomllib
 import unittest
 from unittest.mock import patch
 import zipfile
+import io
+from contextlib import redirect_stdout, redirect_stderr
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import setup
@@ -79,6 +81,42 @@ class ArchiveTests(unittest.TestCase):
             archive.extract_zip(output, self.root / 'out')
         self.assertFalse((self.root / 'out').exists())
 
+    def test_older_file_timestamps(self):
+        source = self.root / 'old.txt'
+        source.write_text('old')
+        os.utime(source, (1, 1))
+        archive.create_zip(self.root / 'old.zip', [source])
+        archive.extract_zip(self.root / 'old.zip', self.root / 'out')
+        self.assertEqual((self.root / 'out/old.txt').read_text(), 'old')
+
+    def test_duplicate_and_windows_colliding_names_are_rejected(self):
+        for names in [('same', 'same'), ('A.txt', 'a.txt'), ('a?.txt', 'a*.txt'), ('CON.txt', 'normal')]:
+            with self.subTest(names=names):
+                output = self.root / 'bad.zip'
+                import warnings
+                with warnings.catch_warnings(), zipfile.ZipFile(output, 'w') as z:
+                    warnings.simplefilter('ignore', UserWarning)
+                    for name in names:
+                        z.writestr(name, 'data')
+                with patch.object(archive.sys, 'platform', 'win32'), self.assertRaises(ValueError):
+                    archive.extract_zip(output, self.root / 'out')
+                self.assertFalse((self.root / 'out').exists())
+
+    def test_backslash_paths_are_normalized(self):
+        output = self.root / 'backslash.zip'
+        with zipfile.ZipFile(output, 'w') as z:
+            z.writestr('folder\\file.txt', 'hello')
+        archive.extract_zip(output, self.root / 'out')
+        self.assertEqual((self.root / 'out/folder/file.txt').read_text(), 'hello')
+
+    def test_cli_accepts_output_starting_with_dash(self):
+        source = self.root / 'source.txt'
+        source.write_text('hello')
+        output = self.root / '-archive.zip'
+        with patch.object(sys, 'argv', ['yazi_archive.py', 'zip', '--', str(output), str(source)]), redirect_stdout(io.StringIO()):
+            self.assertEqual(archive.main(), 0)
+        self.assertTrue(output.exists())
+
 
 class SetupTests(unittest.TestCase):
     def test_keymap_migration_idempotence_and_user_bindings(self):
@@ -146,12 +184,70 @@ class SetupTests(unittest.TestCase):
         args = argparse.Namespace(dry_run=True, install_dependencies=True, install_yazi=True)
         inst = setup.Installer(args)
         inst.windows = True
-        with patch.object(setup.shutil, 'which', side_effect=lambda p: None if p in ['yazi', '7z'] else p), patch.object(inst, 'run') as run:
+        with patch.object(setup.shutil, 'which', return_value='winget'), patch.object(inst, 'find_command', side_effect=lambda p: None if p in ['yazi', '7z'] else p), patch.object(inst, 'run') as run:
             inst.dependencies()
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(len(commands), 2)
         self.assertTrue(any('sxyazi.yazi' in c for c in commands))
         self.assertTrue(any('7zip.7zip' in c for c in commands))
+
+    def test_sevenzip_detected_outside_path(self):
+        with tempfile.TemporaryDirectory() as temp:
+            exe = Path(temp) / '7-Zip/7z.exe'
+            exe.parent.mkdir()
+            exe.write_bytes(b'fake executable')
+            inst = setup.Installer(argparse.Namespace(dry_run=True))
+            inst.windows = True
+            with patch.dict(os.environ, {'ProgramFiles': temp, 'ProgramW6432': temp}), patch.object(setup.shutil, 'which', return_value=None):
+                self.assertEqual(inst.find_command('7z'), str(exe))
+
+    def test_optional_download_failure_continues_and_reports_dns(self):
+        inst = setup.Installer(argparse.Namespace(dry_run=False))
+        error = setup.subprocess.CalledProcessError(2147954407, ['winget'])
+        with patch.object(inst, 'run', side_effect=error), patch('sys.stderr') as stderr:
+            inst.install_windows_package('7z', '7zip.7zip')
+        self.assertEqual(inst.package_failures[0][0], '7zip.7zip')
+        self.assertIn('--source', inst.package_failures[0][1])
+        self.assertIn('server name could not be resolved', str(stderr.write.call_args_list))
+
+    def test_required_download_failure_stops(self):
+        inst = setup.Installer(argparse.Namespace(dry_run=False))
+        error = setup.subprocess.CalledProcessError(2147954407, ['winget'])
+        with patch.object(inst, 'run', side_effect=error):
+            with self.assertRaisesRegex(RuntimeError, 'server name could not be resolved'):
+                inst.install_windows_package('yazi', 'sxyazi.yazi')
+
+    def test_invalid_or_inline_keymap_leaves_configuration_untouched(self):
+        for existing in ['[mgr]\nprepend_keymap = [{on="X",run="quit"}]\n', 'invalid = [']:
+            with tempfile.TemporaryDirectory() as temp:
+                inst = setup.Installer(argparse.Namespace(dry_run=False, skip_keymap=False))
+                inst.config = Path(temp)
+                path = inst.config / 'keymap.toml'
+                path.write_text(existing)
+                with self.assertRaises(ValueError):
+                    inst.configure()
+                self.assertEqual(path.read_text(), existing)
+                self.assertEqual([p.name for p in Path(temp).iterdir()], ['keymap.toml'])
+
+    def test_failed_atomic_write_keeps_original(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'config'
+            path.write_text('original')
+            inst = setup.Installer(argparse.Namespace(dry_run=False))
+            with patch.object(setup.os, 'replace', side_effect=OSError('simulated interruption')):
+                with self.assertRaises(OSError):
+                    inst.write(path, 'replacement')
+            self.assertEqual(path.read_text(), 'original')
+            self.assertFalse(any(p.name.startswith('.config') for p in Path(temp).iterdir()))
+
+    def test_bad_yazi_version_probe_is_not_current(self):
+        with patch.object(setup.shutil, 'which', return_value='yazi'), patch.object(setup.subprocess, 'run', side_effect=OSError('bad executable')):
+            self.assertFalse(setup.yazi_is_current())
+
+    def test_sudo_install_is_rejected(self):
+        with patch.object(sys, 'platform', 'linux'), patch.object(sys, 'argv', ['setup.py']), patch.object(setup.os, 'geteuid', return_value=0, create=True), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                setup.main()
 
 
 if __name__ == '__main__':
