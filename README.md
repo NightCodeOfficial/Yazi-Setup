@@ -12,7 +12,7 @@ installation uses sudo; Windows package installers may request elevation.
 ## Windows
 
 1. Extract or clone this project.
-2. If Python is missing, run `winget install -e --id Python.Python.3.13`, then
+2. If Python is missing, run `winget install -e --id Python.Python.3.13 --source winget`, then
    reopen your terminal.
 3. Double-click **Install Yazi Scripts.bat**. It installs missing Yazi and
    dependency packages, adds the configuration, builds the launcher, and creates

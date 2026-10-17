@@ -19,7 +19,7 @@ foreach ($candidate in @('python.exe', 'python3.exe', 'py.exe')) {
     if ($LASTEXITCODE -eq 0) { $python = $command.Source; break }
 }
 if (-not $python) {
-    throw 'Python 3.10+ is required. Run: winget install -e --id Python.Python.3.13. Reopen your terminal, then rerun this installer.'
+    throw 'Python 3.10+ is required. Run: winget install -e --id Python.Python.3.13 --source winget. Reopen your terminal, then rerun this installer.'
 }
 $arguments = @((Join-Path $PSScriptRoot 'setup.py'))
 if ($InstallYazi) { $arguments += '--install-yazi' }

@@ -124,7 +124,7 @@ class Installer:
                 present = shutil.which(command)
                 upgrade = command == 'yazi' and present and not yazi_is_current()
                 if not present or upgrade:
-                    self.run(['winget', 'upgrade' if upgrade else 'install', '--id', package, '-e',
+                    self.run(['winget', 'upgrade' if upgrade else 'install', '--id', package, '-e', '--source', 'winget',
                               '--accept-source-agreements', '--accept-package-agreements'])
             if packages and not self.args.dry_run:
                 import winreg
