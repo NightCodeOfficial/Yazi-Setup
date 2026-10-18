@@ -28,8 +28,10 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install Yazi, preview tools, font and Tokyo Night
-        run: python setup.py --install-yazi --install-dependencies --theme tokyo-night
+        run: sh ./install.sh --theme tokyo-night --merge-keymap
       - name: Exercise real preview tools
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           python scripts/check_previews.py
+      - name: Exercise real archive keybindings in Yazi
+        run: python tests/smoke_yazi_linux.py

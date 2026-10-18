@@ -1,5 +1,17 @@
-param([Parameter(Mandatory = $true)][string]$FilePath)
+param([string]$FilePath)
 $ErrorActionPreference = "Stop"
+
+# Preserve old keymaps that pass a file URL through the legacy temp file.
+# New bindings pass -FilePath directly and do not use this fallback.
+if ([string]::IsNullOrWhiteSpace($FilePath)) {
+    $legacyTemp = Join-Path $env:TEMP 'yazi_file_to_copy.txt'
+    if (-not (Test-Path -LiteralPath $legacyTemp -PathType Leaf)) {
+        Write-Error 'No file path supplied. Reinstall the direct-argument clipboard binding or pass -FilePath.'
+        exit 1
+    }
+    $FilePath = (Get-Content -LiteralPath $legacyTemp -Raw).Trim()
+}
+if ($FilePath -match '^file:') { $FilePath = ([Uri]$FilePath).LocalPath }
 
 if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) {
     Write-Host "File not found:"

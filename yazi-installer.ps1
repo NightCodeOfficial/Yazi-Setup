@@ -2,6 +2,7 @@ param(
     [switch]$InstallYazi,
     [switch]$InstallDependencies,
     [switch]$SkipKeymap,
+    [switch]$MergeKeymap,
     [switch]$SkipLauncher,
     [switch]$DryRun,
     [ValidateSet('keep', 'choose', 'default', 'tokyo-night', 'catppuccin-mocha')]
@@ -39,6 +40,7 @@ if ($FontFace) { $arguments += @('--font-face', $FontFace) }
 if ($InstallYazi) { $arguments += '--install-yazi' }
 if ($InstallDependencies) { $arguments += '--install-dependencies' }
 if ($SkipKeymap) { $arguments += '--skip-keymap' }
+if ($MergeKeymap) { $arguments += '--merge-keymap' }
 if ($SkipLauncher) { $arguments += '--skip-launcher' }
 if ($DryRun -or $Test) { $arguments += '--dry-run' }
 & $python @arguments

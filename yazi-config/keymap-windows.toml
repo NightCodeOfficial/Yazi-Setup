@@ -1,0 +1,82 @@
+# Reference only: setup.py generates the settings path for your machine.
+# >>> Yazi Setup keybindings >>>
+[[mgr.prepend_keymap]]
+on = ["g", "d"]
+run = "cd ~/Downloads"
+desc = "Go to Downloads"
+
+[[mgr.prepend_keymap]]
+on = ["g", "a"]
+run = "cd ~/Work"
+desc = "Go to Work"
+
+[[mgr.prepend_keymap]]
+on = ["g", "c"]
+run = "cd ~/OneDrive/Code"
+desc = "Go to Code folder"
+
+[[mgr.prepend_keymap]]
+on = ["g", "z"]
+run = "cd ~/Documents"
+desc = "Go to Documents"
+
+[[mgr.prepend_keymap]]
+on = ["R"]
+run = "rename --empty=stem --cursor=start"
+desc = "Rename filename, keeping extension"
+
+[[mgr.prepend_keymap]]
+on = ["u", "z"]
+run = "shell -- ya pub extract --list %h"
+desc = "Extract hovered archive using Yazi"
+
+[[mgr.prepend_keymap]]
+on = ["u", "Z"]
+run = "plugin setup-archive -- extract-zip"
+desc = "Extract ZIP into a chosen new folder"
+
+[[mgr.prepend_keymap]]
+on = ["c", "z"]
+run = "plugin setup-archive -- zip"
+desc = "ZIP selected files (or hovered file)"
+
+[[mgr.prepend_keymap]]
+on = [",", "d"]
+run = "sort mtime --reverse --dir-first=no"
+desc = "Newest modified first, without directories first"
+
+[[mgr.prepend_keymap]]
+on = ["g", "s"]
+run = "cd \"~\\\\AppData\\\\Roaming\\\\yazi\\\\config\""
+desc = "Go to Yazi settings"
+
+[[mgr.prepend_keymap]]
+on = ["g", "p"]
+run = "cd ~/Scripts"
+desc = "Go to helper scripts"
+
+[[mgr.prepend_keymap]]
+on = ["c", "a"]
+run = "plugin setup-archive -- clipboard"
+desc = "Copy hovered file to Windows clipboard"
+
+[[mgr.prepend_keymap]]
+on = ["u", "o"]
+run = "shell -- explorer ."
+desc = "Open directory in Explorer"
+
+[[mgr.prepend_keymap]]
+on = ["<C-n>", "x"]
+run = "shell --block -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\Scripts\\new-office-file.ps1\" -Type xlsx"
+desc = "Create xlsx from Office template"
+
+[[mgr.prepend_keymap]]
+on = ["<C-n>", "w"]
+run = "shell --block -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\Scripts\\new-office-file.ps1\" -Type docx"
+desc = "Create docx from Office template"
+
+[[mgr.prepend_keymap]]
+on = ["<C-n>", "p"]
+run = "shell --block -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\Scripts\\new-office-file.ps1\" -Type pptx"
+desc = "Create pptx from Office template"
+# <<< Yazi Setup keybindings <<<

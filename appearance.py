@@ -9,6 +9,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import tomllib
@@ -83,6 +84,9 @@ def select_theme(choice, dry_run=False):
         return choice
     if dry_run:
         print('Theme selection: keep existing (interactive menu skipped for dry run).')
+        return 'keep'
+    if not sys.stdin.isatty():
+        print('Non-interactive install: keeping the existing theme. Pass --theme to choose explicitly.')
         return 'keep'
     choices = ['keep', 'tokyo-night', 'catppuccin-mocha', 'default']
     print('\nYazi theme: 1) Keep existing  2) Tokyo Night  3) Catppuccin Mocha  4) Default')
@@ -213,6 +217,9 @@ def configure(installer):
     choice = select_theme(getattr(installer.args, 'theme', 'keep'), installer.args.dry_run)
     install_theme(installer, choice)
     font_face = getattr(installer.args, 'font_face', None)
+    linux_settings = installer.config / 'setup-appearance.json'
+    if not installer.windows and not font_face and linux_settings.exists():
+        font_face = json.loads(linux_settings.read_text(encoding='utf-8')).get('font_face')
     wants_font = (getattr(installer.args, 'install_font', False)
                   or getattr(installer.args, 'install_dependencies', False)) and not getattr(installer.args, 'skip_font', False)
     if wants_font:
@@ -222,6 +229,8 @@ def configure(installer):
         except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
             installer.setup_warnings.append(f'Nerd Font setup failed: {exc}')
     terminal_profile(installer, font_face)
+    if not installer.windows and font_face:
+        installer.write(linux_settings, json.dumps({'font_face': font_face}, indent=2) + '\n')
     if getattr(installer.args, 'install_dependencies', False):
         try:
             install_resvg(installer)

@@ -74,7 +74,7 @@ class AppearanceTests(unittest.TestCase):
         self.assertEqual(tomllib.loads(path.read_text())['flavor']['dark'], 'old')
 
     def test_theme_menu_and_dry_run(self):
-        with patch('builtins.input', side_effect=['wrong', '2']):
+        with patch('builtins.input', side_effect=['wrong', '2']), patch.object(sys.stdin, 'isatty', return_value=True):
             self.assertEqual(appearance.select_theme('choose'), 'tokyo-night')
         with patch('builtins.input', side_effect=AssertionError('dry run prompted')):
             self.assertEqual(appearance.select_theme('choose', True), 'keep')
@@ -143,6 +143,13 @@ class AppearanceTests(unittest.TestCase):
             face = appearance.configure(self.installer)
         self.assertIsNone(face)
         self.assertIn('offline', self.installer.setup_warnings[0])
+
+    def test_linux_font_choice_survives_configure_only_rerun(self):
+        self.installer.windows = False
+        self.args.font_face = 'Existing Nerd Font'
+        self.assertEqual(appearance.configure(self.installer), 'Existing Nerd Font')
+        self.args.font_face = None
+        self.assertEqual(appearance.configure(self.installer), 'Existing Nerd Font')
 
 
 if __name__ == '__main__':

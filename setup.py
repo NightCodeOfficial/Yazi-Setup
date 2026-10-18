@@ -16,6 +16,7 @@ except ModuleNotFoundError:
     raise SystemExit('Python 3.11+ is required for safe TOML configuration updates.')
 from urllib.request import urlopen
 import appearance
+import keymaps
 
 ROOT = Path(__file__).resolve().parent
 START = '# >>> Yazi Setup keybindings >>>'
@@ -53,23 +54,7 @@ def yazi_is_current():
 
 
 def merge_keymap(existing, snippet):
-    """Replace only complete managed blocks; leave user configuration intact."""
-    for start, end in [(START, END), (OLD_START, OLD_END)]:
-        if existing.count(start) != existing.count(end) or existing.count(start) > 1:
-            raise ValueError('Incomplete/duplicate managed keymap block; repair keymap.toml first')
-        if start in existing:
-            if existing.index(start) > existing.index(end):
-                raise ValueError('Managed keymap markers are out of order')
-            existing = re.sub(re.escape(start) + r'.*?' + re.escape(end), '',
-                              existing, flags=re.S)
-    merged = snippet.strip() + '\n\n' + existing.lstrip('\r\n')
-    try:
-        tomllib.loads(merged)
-    except tomllib.TOMLDecodeError as exc:
-        raise ValueError('Cannot safely merge keymap.toml: ' + str(exc)
-                         + '. Use [[mgr.prepend_keymap]] entries instead of an inline '
-                         'mgr.prepend_keymap array, or use --skip-keymap.') from exc
-    return merged
+    return keymaps.plan_merge(existing, snippet, 'windows' if sys.platform == 'win32' else 'linux').content
 
 
 def binding(keys, command, description):
@@ -81,24 +66,30 @@ def binding(keys, command, description):
 def keymap(windows, config):
     items = [
         (['g', 'd'], 'cd ~/Downloads', 'Go to Downloads'),
+        (['g', 'a'], 'cd ~/Work', 'Go to Work'),
+        (['g', 'c'], 'cd ~/OneDrive/Code' if windows else 'cd ~/Desktop/code', 'Go to Code folder'),
         (['g', 'z'], 'cd ~/Documents', 'Go to Documents'),
         (['R'], 'rename --empty=stem --cursor=start', 'Rename filename, keeping extension'),
-        (['u', 'z'], 'plugin setup-archive extract', 'Extract hovered ZIP into new folder'),
-        (['c', 'z'], 'plugin setup-archive zip', 'ZIP selected files (or hovered file)'),
+        (['u', 'z'], 'shell -- ya pub extract --list %h', 'Extract hovered archive using Yazi'),
+        (['u', 'Z'], 'plugin setup-archive -- extract-zip', 'Extract ZIP into a chosen new folder'),
+        (['c', 'z'], 'plugin setup-archive -- zip', 'ZIP selected files (or hovered file)'),
+        ([',', 'd'], 'sort mtime --reverse --dir-first=no', 'Newest modified first, without directories first'),
     ]
     # Yazi command parsing needs doubled backslashes inside double quotes.
     config_arg = str(config).replace('\\', '\\\\').replace('"', '\\"')
     items.append((['g', 's'], f'cd "{config_arg}"', 'Go to Yazi settings'))
     if windows:
         items += [(['g', 'p'], 'cd ~/Scripts', 'Go to helper scripts'),
-                  (['c', 'a'], 'plugin setup-archive clipboard', 'Copy hovered file to Windows clipboard'),
+                  (['c', 'a'], 'plugin setup-archive -- clipboard', 'Copy hovered file to Windows clipboard'),
                   (['u', 'o'], 'shell -- explorer .', 'Open directory in Explorer')]
         for key, ext in [('x', 'xlsx'), ('w', 'docx'), ('p', 'pptx')]:
-            items.append((['n', key], 'shell --block -- powershell.exe -NoProfile '
+            items.append((['<C-n>', key], 'shell --block -- powershell.exe -NoProfile '
                           '-ExecutionPolicy Bypass -File "%USERPROFILE%\\Scripts\\new-office-file.ps1" '
                           f'-Type {ext}', f'Create {ext} from Office template'))
     else:
-        items.append((['u', 'o'], 'shell -- xdg-open .', 'Open directory in desktop file manager'))
+        items += [(['u', 'o'], 'shell -- xdg-open .', 'Open directory in desktop file manager'),
+                  (['c', 'a'], 'plugin setup-archive -- clipboard', 'Copy hovered file to Wayland or X11 clipboard'),
+                  (['<Enter>'], 'plugin code-enter', 'Open directories in VS Code; open files normally')]
     return START + '\n' + '\n'.join(binding(*item) for item in items) + END + '\n'
 
 
@@ -110,6 +101,8 @@ class Installer:
         self.package_failures = []
         self.setup_warnings = []
         self.font_face = None
+        self.keymap_conflicts = []
+        self.keymap_note = ''
         self.config = Path(os.environ.get('YAZI_CONFIG_HOME') or (
             str(Path(os.environ['APPDATA']) / 'yazi/config') if self.windows else
             str(Path(os.environ.get('XDG_CONFIG_HOME', self.home / '.config')) / 'yazi'))).expanduser().absolute()
@@ -235,7 +228,15 @@ class Installer:
                 probe = subprocess.run(['apt-cache', 'show', '7zip'], capture_output=True)
                 if probe.returncode:
                     packages[packages.index('7zip')] = 'p7zip-full'
-            self.run(install + packages)
+            try:
+                self.run(install + packages)
+            except subprocess.CalledProcessError:
+                print('Some dependency packages were unavailable; retrying separately so other tools can still be installed.')
+                for package in packages:
+                    try:
+                        self.run(install + [package])
+                    except subprocess.CalledProcessError:
+                        self.setup_warnings.append(f'Could not install Linux dependency {package}; retry with: ' + shlex.join(install + [package]))
         if self.args.install_yazi and not yazi_is_current():
             if manager == 'apt-get':
                 print('Configure the official Yazi stable APT repository (amd64/arm64).')
@@ -251,6 +252,10 @@ class Installer:
                 self.run(prefix + ['apt-get', 'update'])
                 self.run(install + ['yazi'])
             else:
+                if manager == 'dnf':
+                    print('Enable the lihaohong/yazi COPR repository recommended in the Yazi Fedora installation guide.')
+                    self.run(install + ['dnf-plugins-core'])
+                    self.run(prefix + ['dnf', 'copr', 'enable', '-y', 'lihaohong/yazi'])
                 self.run(install + ['yazi'])
 
     def windows_environment(self):
@@ -307,14 +312,31 @@ class Installer:
         if not self.args.skip_keymap:
             keymap_path = self.config / 'keymap.toml'
             existing = keymap_path.read_text(encoding='utf-8-sig') if keymap_path.exists() else ''
-            merged = merge_keymap(existing, keymap(self.windows, self.config))
+            plan = keymaps.plan_merge(existing, keymap(self.windows, self.config), 'windows' if self.windows else 'linux')
+            self.keymap_conflicts = keymaps.conflict_report(plan)
+            if existing.strip() and not keymaps.confirm_merge(plan, self.args.dry_run, getattr(self.args, 'merge_keymap', False)):
+                self.keymap_note = 'Existing keymap kept; missing shortcuts were not added.'
+            else:
+                merged = plan.content
+                self.keymap_note = f'Added {len(plan.added)} missing shortcuts; preserved all existing mappings.'
         plugin = self.config / 'plugins/setup-archive.yazi'
         script = plugin / 'yazi_archive.py'
         self.write(script, (ROOT / 'scripts/yazi_archive.py').read_text(encoding='utf-8'))
+        actions = plugin / 'yazi_actions.py'
+        self.write(actions, (ROOT / 'scripts/yazi_actions.py').read_text(encoding='utf-8'))
         runtime = ('{ python = ' + json.dumps(sys.executable, ensure_ascii=False)
                    + ', script = ' + json.dumps(str(script), ensure_ascii=False)
+                   + ', actions = ' + json.dumps(str(actions), ensure_ascii=False)
+                   + ', windows = ' + ('true' if self.windows else 'false')
                    + ', clipboard = ' + json.dumps(str(self.home / 'Scripts/yazi-copy-actual-file.ps1'), ensure_ascii=False) + ' }')
         self.write(plugin / 'main.lua', (ROOT / 'yazi-config/plugins/setup-archive.yazi/main.lua').read_text(encoding='utf-8').replace('__RUNTIME__', runtime))
+        if not self.windows:
+            code_plugin = self.config / 'plugins/code-enter.yazi/main.lua'
+            code_source = (ROOT / 'yazi-config/plugins/code-enter.yazi/main.lua').read_text(encoding='utf-8')
+            if code_plugin.exists() and code_plugin.read_text(encoding='utf-8-sig') != code_source:
+                self.keymap_conflicts.append('code-enter: kept your existing plugin implementation.')
+            else:
+                self.write(code_plugin, code_source)
         if merged is not None:
             self.write(keymap_path, merged)
         if self.windows:
@@ -378,8 +400,14 @@ class Installer:
                 found = found or shutil.which('7zz')
             print(f'  {command}: {found or "missing"}')
         print(f'\nConfiguration: {self.config}')
-        print('ZIP creation/extraction uses the Python standard library; no pip packages needed.')
+        print('ZIP creation and u Z extraction use Python; u z uses Yazi/7-Zip. No pip packages needed.')
         print('Image previews require Windows Terminal >= 1.22.10352.0, Kitty, or another supported terminal.')
+        if self.keymap_note:
+            print(self.keymap_note)
+        if self.keymap_conflicts:
+            print('\nKeymap conflicts: existing mappings kept (no shortcut was overwritten):')
+            for conflict in self.keymap_conflicts:
+                print('  ' + conflict)
         for warning in self.setup_warnings:
             print('WARNING: ' + warning)
         if not yazi_is_current():
@@ -396,6 +424,7 @@ def main():
     parser.add_argument('--install-yazi', action='store_true')
     parser.add_argument('--install-dependencies', action='store_true')
     parser.add_argument('--skip-keymap', action='store_true')
+    parser.add_argument('--merge-keymap', action='store_true', help='Add only missing shortcuts to an existing keymap without prompting; keep conflicting mappings')
     parser.add_argument('--skip-launcher', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--theme', choices=['keep', 'choose', 'default', *appearance.THEMES], default='keep')

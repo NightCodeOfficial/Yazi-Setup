@@ -121,13 +121,13 @@ class ArchiveTests(unittest.TestCase):
 class SetupTests(unittest.TestCase):
     def test_keymap_migration_idempotence_and_user_bindings(self):
         custom = '[[mgr.prepend_keymap]]\non = "X"\nrun = "quit"\n'
-        old = custom + setup.OLD_START + '\nold bindings\n' + setup.OLD_END
+        old = custom + setup.OLD_START + '\n# old bindings\n' + setup.OLD_END
         snippet = setup.keymap(True, Path('C:/config space'))
         merged = setup.merge_keymap(old, snippet)
         self.assertIn(custom, merged)
-        self.assertNotIn('old bindings', merged)
+        self.assertIn('old bindings', merged)
         self.assertEqual(setup.merge_keymap(merged, snippet), merged)
-        self.assertEqual(len(tomllib.loads(merged)['mgr']['prepend_keymap']), 13)
+        self.assertEqual(len(tomllib.loads(merged)['mgr']['prepend_keymap']), 17)
 
     def test_partial_markers_refused(self):
         for existing in [setup.START, setup.OLD_END, setup.END + setup.START]:
@@ -191,6 +191,32 @@ class SetupTests(unittest.TestCase):
         self.assertTrue(any('sxyazi.yazi' in c for c in commands))
         self.assertTrue(any('7zip.7zip' in c for c in commands))
 
+    def test_linux_dependency_batch_failure_does_not_block_available_tools(self):
+        args = argparse.Namespace(dry_run=False, install_dependencies=True, install_yazi=False)
+        inst = setup.Installer(args)
+        inst.windows = False
+        commands = []
+        def run(command, **kwargs):
+            commands.append(command)
+            if 'ffmpeg' in command:
+                raise setup.subprocess.CalledProcessError(100, command)
+        with patch.object(setup.shutil, 'which', side_effect=lambda p: 'apt-get' if p == 'apt-get' else None), patch.object(setup.os, 'geteuid', return_value=1000, create=True), patch.object(setup.subprocess, 'run') as probe, patch.object(inst, 'run', side_effect=run):
+            probe.return_value.returncode = 0
+            inst.dependencies()
+        self.assertTrue(any(command[-1] == 'kitty' for command in commands))
+        self.assertEqual(len(inst.setup_warnings), 1)
+        self.assertIn('ffmpeg', inst.setup_warnings[0])
+
+    def test_fedora_enables_documented_yazi_repository(self):
+        args = argparse.Namespace(dry_run=True, install_dependencies=False, install_yazi=True)
+        inst = setup.Installer(args)
+        inst.windows = False
+        with patch.object(setup.shutil, 'which', side_effect=lambda p: 'dnf' if p == 'dnf' else None), patch.object(setup.os, 'geteuid', return_value=1000, create=True), patch.object(inst, 'run') as run:
+            inst.dependencies()
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn(['sudo', 'dnf', 'copr', 'enable', '-y', 'lihaohong/yazi'], commands)
+        self.assertTrue(commands[-1][-1] == 'yazi')
+
     def test_sevenzip_detected_outside_path(self):
         with tempfile.TemporaryDirectory() as temp:
             exe = Path(temp) / '7-Zip/7z.exe'
@@ -217,8 +243,8 @@ class SetupTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'server name could not be resolved'):
                 inst.install_windows_package('yazi', 'sxyazi.yazi')
 
-    def test_invalid_or_inline_keymap_leaves_configuration_untouched(self):
-        for existing in ['[mgr]\nprepend_keymap = [{on="X",run="quit"}]\n', 'invalid = [']:
+    def test_invalid_keymap_leaves_configuration_untouched(self):
+        for existing in ['invalid = [']:
             with tempfile.TemporaryDirectory() as temp:
                 inst = setup.Installer(argparse.Namespace(dry_run=False, skip_keymap=False))
                 inst.config = Path(temp)

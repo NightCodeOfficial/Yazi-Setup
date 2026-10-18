@@ -1,0 +1,67 @@
+# Reference only: setup.py generates the settings path for your machine.
+# >>> Yazi Setup keybindings >>>
+[[mgr.prepend_keymap]]
+on = ["g", "d"]
+run = "cd ~/Downloads"
+desc = "Go to Downloads"
+
+[[mgr.prepend_keymap]]
+on = ["g", "a"]
+run = "cd ~/Work"
+desc = "Go to Work"
+
+[[mgr.prepend_keymap]]
+on = ["g", "c"]
+run = "cd ~/Desktop/code"
+desc = "Go to Code folder"
+
+[[mgr.prepend_keymap]]
+on = ["g", "z"]
+run = "cd ~/Documents"
+desc = "Go to Documents"
+
+[[mgr.prepend_keymap]]
+on = ["R"]
+run = "rename --empty=stem --cursor=start"
+desc = "Rename filename, keeping extension"
+
+[[mgr.prepend_keymap]]
+on = ["u", "z"]
+run = "shell -- ya pub extract --list %h"
+desc = "Extract hovered archive using Yazi"
+
+[[mgr.prepend_keymap]]
+on = ["u", "Z"]
+run = "plugin setup-archive -- extract-zip"
+desc = "Extract ZIP into a chosen new folder"
+
+[[mgr.prepend_keymap]]
+on = ["c", "z"]
+run = "plugin setup-archive -- zip"
+desc = "ZIP selected files (or hovered file)"
+
+[[mgr.prepend_keymap]]
+on = [",", "d"]
+run = "sort mtime --reverse --dir-first=no"
+desc = "Newest modified first, without directories first"
+
+[[mgr.prepend_keymap]]
+on = ["g", "s"]
+run = "cd \"~/.config/yazi\""
+desc = "Go to Yazi settings"
+
+[[mgr.prepend_keymap]]
+on = ["u", "o"]
+run = "shell -- xdg-open ."
+desc = "Open directory in desktop file manager"
+
+[[mgr.prepend_keymap]]
+on = ["c", "a"]
+run = "plugin setup-archive -- clipboard"
+desc = "Copy hovered file to Wayland or X11 clipboard"
+
+[[mgr.prepend_keymap]]
+on = ["<Enter>"]
+run = "plugin code-enter"
+desc = "Open directories in VS Code; open files normally"
+# <<< Yazi Setup keybindings <<<
