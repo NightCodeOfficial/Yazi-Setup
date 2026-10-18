@@ -70,6 +70,15 @@ namespace YaziLauncher
 
         private static int LaunchYazi()
         {
+            // Start Menu/Explorer may still carry the environment from before setup.
+            string userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
+            string machinePath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine);
+            Environment.SetEnvironmentVariable("PATH", (Environment.GetEnvironmentVariable("PATH") ?? "") + ";" + machinePath + ";" + userPath);
+            string fileOne = Environment.GetEnvironmentVariable("YAZI_FILE_ONE", EnvironmentVariableTarget.User);
+            if (!string.IsNullOrEmpty(fileOne) && File.Exists(fileOne))
+            {
+                Environment.SetEnvironmentVariable("YAZI_FILE_ONE", fileOne);
+            }
             string terminalPath = FindWindowsTerminal();
             if (string.IsNullOrEmpty(terminalPath))
             {
@@ -104,8 +113,12 @@ namespace YaziLauncher
             Log("Existing Windows Terminal host windows: " + initialTerminalWindows.Count + ".");
 
             string shellCommand = "& " + QuotePowerShellLiteral(yaziPath);
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string fragment = Path.Combine(localAppData, "Microsoft", "Windows Terminal", "Fragments", "YaziSetup", "yazi.json");
+            string profileArgument = File.Exists(fragment) ? "--profile " + Quote("Yazi Setup") + " " : "";
             string arguments =
                 "-w new nt " +
+                profileArgument +
                 "-d " + Quote(home) + " " +
                 "--title " + Quote(WindowTitle) + " " +
                 "--suppressApplicationTitle " +

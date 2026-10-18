@@ -4,6 +4,12 @@ param(
     [switch]$SkipKeymap,
     [switch]$SkipLauncher,
     [switch]$DryRun,
+    [ValidateSet('keep', 'choose', 'default', 'tokyo-night', 'catppuccin-mocha')]
+    [string]$Theme = 'keep',
+    [switch]$ChooseTheme,
+    [switch]$InstallFont,
+    [switch]$SkipFont,
+    [string]$FontFace,
     [switch]$Test,
     [switch]$Force,
     [switch]$SkipYaziInstallPrompt,
@@ -25,6 +31,11 @@ if (-not $python) {
     throw 'Python 3.11+ is required. Run: winget install -e --id Python.Python.3.13 --source winget. Reopen your terminal, then rerun this installer.'
 }
 $arguments = @((Join-Path $PSScriptRoot 'setup.py'))
+if ($ChooseTheme -and -not $PSBoundParameters.ContainsKey('Theme')) { $Theme = 'choose' }
+$arguments += @('--theme', $Theme)
+if ($InstallFont) { $arguments += '--install-font' }
+if ($SkipFont) { $arguments += '--skip-font' }
+if ($FontFace) { $arguments += @('--font-face', $FontFace) }
 if ($InstallYazi) { $arguments += '--install-yazi' }
 if ($InstallDependencies) { $arguments += '--install-dependencies' }
 if ($SkipKeymap) { $arguments += '--skip-keymap' }

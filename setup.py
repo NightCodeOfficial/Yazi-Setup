@@ -15,6 +15,7 @@ try:
 except ModuleNotFoundError:
     raise SystemExit('Python 3.11+ is required for safe TOML configuration updates.')
 from urllib.request import urlopen
+import appearance
 
 ROOT = Path(__file__).resolve().parent
 START = '# >>> Yazi Setup keybindings >>>'
@@ -31,11 +32,11 @@ WINDOWS_PACKAGES = {
 }
 LINUX_PACKAGES = {
     'apt-get': ['file', '7zip', 'unzip', 'zip', 'ffmpeg', 'jq', 'poppler-utils',
-                'fd-find', 'ripgrep', 'fzf', 'zoxide', 'imagemagick', 'xdg-utils', 'xclip', 'wl-clipboard'],
+                'fd-find', 'ripgrep', 'fzf', 'zoxide', 'imagemagick', 'xdg-utils', 'xclip', 'wl-clipboard', 'fontconfig', 'kitty'],
     'dnf': ['file', '7zip', 'unzip', 'zip', 'ffmpeg-free', 'jq', 'poppler-utils',
-            'fd-find', 'ripgrep', 'fzf', 'zoxide', 'ImageMagick', 'xdg-utils', 'xclip', 'wl-clipboard'],
+            'fd-find', 'ripgrep', 'fzf', 'zoxide', 'ImageMagick', 'xdg-utils', 'xclip', 'wl-clipboard', 'fontconfig', 'kitty'],
     'pacman': ['file', '7zip', 'unzip', 'zip', 'ffmpeg', 'jq', 'poppler',
-               'fd', 'ripgrep', 'fzf', 'zoxide', 'imagemagick', 'resvg', 'xdg-utils', 'xclip', 'wl-clipboard'],
+               'fd', 'ripgrep', 'fzf', 'zoxide', 'imagemagick', 'resvg', 'xdg-utils', 'xclip', 'wl-clipboard', 'fontconfig', 'kitty'],
 }
 
 
@@ -107,6 +108,8 @@ class Installer:
         self.windows = sys.platform == 'win32'
         self.home = Path.home()
         self.package_failures = []
+        self.setup_warnings = []
+        self.font_face = None
         self.config = Path(os.environ.get('YAZI_CONFIG_HOME') or (
             str(Path(os.environ['APPDATA']) / 'yazi/config') if self.windows else
             str(Path(os.environ.get('XDG_CONFIG_HOME', self.home / '.config')) / 'yazi'))).expanduser().absolute()
@@ -143,6 +146,16 @@ class Installer:
 
     def find_command(self, command):
         found = shutil.which(command)
+        if self.windows and command == 'file':
+            configured = os.environ.get('YAZI_FILE_ONE')
+            if configured and Path(configured).is_file():
+                return configured
+        if not found and command in ('resvg', 'fd'):
+            root = (Path(os.environ.get('LOCALAPPDATA', self.home)) / 'YaziSetup/bin'
+                    if self.windows else self.home / '.local/bin')
+            executable = root / (command + ('.exe' if self.windows else ''))
+            if executable.is_file():
+                return str(executable)
         if found or not self.windows or command != '7z':
             return found
         # The official 7-Zip installer does not normally add itself to PATH.
@@ -184,18 +197,24 @@ class Installer:
             for command, package in packages.items():
                 present = self.find_command(command)
                 upgrade = command == 'yazi' and present and not yazi_is_current()
+                if command == 'wt' and present:
+                    version = appearance.windows_terminal_version()
+                    if version is not None:
+                        upgrade = version < appearance.MIN_TERMINAL_VERSION
+                    else:
+                        self.setup_warnings.append('Could not verify Windows Terminal version. Image display needs 1.22.10352.0 or newer.')
                 if not present or upgrade:
                     self.install_windows_package(command, package, upgrade)
             if packages and not self.args.dry_run:
                 import winreg
                 for hive, key in [(winreg.HKEY_CURRENT_USER, 'Environment'),
                                   (winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment')]:
-                    with winreg.OpenKey(hive, key) as env_key:
-                        try:
+                    try:
+                        with winreg.OpenKey(hive, key) as env_key:
                             value, _ = winreg.QueryValueEx(env_key, 'Path')
-                        except FileNotFoundError:
-                            continue
-                        os.environ['PATH'] += ';' + os.path.expandvars(value)
+                    except FileNotFoundError:
+                        continue
+                    os.environ['PATH'] += ';' + os.path.expandvars(value)
             return
         manager = next((p for p in LINUX_PACKAGES if shutil.which(p)), None)
         if (self.args.install_dependencies or self.args.install_yazi) and not manager:
@@ -257,23 +276,30 @@ class Installer:
                 return
             raise
         with env_key:
-            if sevenzip and not shutil.which('7z'):
+            directories = [sevenzip] if sevenzip and not shutil.which('7z') else []
+            local_tools = Path(os.environ['LOCALAPPDATA']) / 'YaziSetup/bin'
+            if (local_tools / 'resvg.exe').is_file():
+                directories.append(local_tools)
+            for directory in directories:
                 try:
                     current, _ = winreg.QueryValueEx(env_key, 'Path')
                 except FileNotFoundError:
                     current = ''
-                if str(sevenzip).lower() not in [p.lower().rstrip('\\') for p in current.split(';')]:
-                    print(f'Add to user PATH: {sevenzip}')
+                if str(directory).lower() not in [p.lower().rstrip('\\') for p in current.split(';')]:
+                    print(f'Add to user PATH: {directory}')
                     if not self.args.dry_run:
                         winreg.SetValueEx(env_key, 'Path', 0, winreg.REG_EXPAND_SZ,
-                                          current.rstrip(';') + ';' + str(sevenzip))
+                                          current.rstrip(';') + ';' + str(directory))
                 if not self.args.dry_run:
-                    os.environ['PATH'] += ';' + str(sevenzip)
-            if git_file.exists() and not os.environ.get('YAZI_FILE_ONE'):
+                    os.environ['PATH'] += ';' + str(directory)
+            configured_file = os.environ.get('YAZI_FILE_ONE')
+            if git_file.exists() and (not configured_file or not Path(configured_file).is_file()):
                 print(f'Set YAZI_FILE_ONE: {git_file}')
                 if not self.args.dry_run:
                     winreg.SetValueEx(env_key, 'YAZI_FILE_ONE', 0, winreg.REG_SZ, str(git_file))
                     os.environ['YAZI_FILE_ONE'] = str(git_file)
+            if not git_file.exists() and not self.find_command('file'):
+                self.setup_warnings.append('MIME detection is missing: install Git for Windows and set YAZI_FILE_ONE to its usr\\bin\\file.exe.')
 
     def configure(self):
         # Validate before writing any files, including the archive plugin.
@@ -302,6 +328,16 @@ class Installer:
             if not shutil.which('fd') and shutil.which('fdfind'):
                 self.write(self.home / '.local/bin/fd', '#!/bin/sh\nexec ' + shlex.quote(shutil.which('fdfind')) + ' "$@"\n', True)
 
+    def verify_previews(self):
+        if self.args.dry_run:
+            print('Preview smoke tests: skipped during dry run.')
+            return
+        from scripts.check_previews import check_previews
+        for result in check_previews():
+            print(f'{"PASS" if result["ok"] else "FAIL"}: {result["preview"]}: {result["detail"]}')
+            if not result['ok'] and not result['optional']:
+                self.setup_warnings.append(f'{result["preview"]} failed. Run python scripts/check_previews.py for details.')
+
     def launcher(self):
         if self.args.skip_launcher:
             return
@@ -318,13 +354,23 @@ class Installer:
             escaped = str(launcher).replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$').replace('%', '%%')
             # Desktop value escaping is applied before Exec argument unquoting.
             escaped = escaped.replace('\\', '\\\\')
+            terminal = 'true'
+            if shutil.which('kitty'):
+                options = ['kitty', '--class', 'yazi']
+                if self.font_face:
+                    options += ['--override', 'font_family=' + self.font_face]
+                options += [str(launcher)]
+                # Quoting here follows Desktop Entry Exec rules, not shell quoting.
+                escaped = ' '.join('"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$').replace('%', '%%').replace('\\', '\\\\') + '"' for value in options)
+                terminal = 'false'
             self.write(data / 'applications/yazi-launcher.desktop',
                        '[Desktop Entry]\nType=Application\nName=Yazi Launcher\n'
-                       f'Exec="{escaped}"\nTerminal=true\nIcon=system-file-manager\n'
+                       + (f'Exec={escaped}\n' if terminal == 'false' else f'Exec="{escaped}"\n')
+                       + f'Terminal={terminal}\nIcon=system-file-manager\n'
                        'Categories=System;FileTools;FileManager;\n')
 
     def status(self):
-        commands = list(WINDOWS_PACKAGES) + ['ya', 'resvg'] if self.windows else ['yazi', 'ya', 'file', '7z', 'ffmpeg', 'jq', 'pdftoppm', 'fd', 'rg', 'fzf', 'zoxide', 'magick', 'resvg']
+        commands = list(WINDOWS_PACKAGES) + ['ya', 'file', 'ffprobe', 'resvg'] if self.windows else ['yazi', 'ya', 'file', '7z', 'ffmpeg', 'ffprobe', 'jq', 'pdftoppm', 'fd', 'rg', 'fzf', 'zoxide', 'magick', 'resvg', 'kitty']
         print('\nDependency status (new installations may require a fresh terminal):')
         for command in commands:
             found = self.find_command(command)
@@ -333,6 +379,9 @@ class Installer:
             print(f'  {command}: {found or "missing"}')
         print(f'\nConfiguration: {self.config}')
         print('ZIP creation/extraction uses the Python standard library; no pip packages needed.')
+        print('Image previews require Windows Terminal >= 1.22.10352.0, Kitty, or another supported terminal.')
+        for warning in self.setup_warnings:
+            print('WARNING: ' + warning)
         if not yazi_is_current():
             print('WARNING: Yazi 26.9.1+ is required for these bindings. Rerun with --install-yazi or upgrade it manually.')
         if self.package_failures:
@@ -349,7 +398,14 @@ def main():
     parser.add_argument('--skip-keymap', action='store_true')
     parser.add_argument('--skip-launcher', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--theme', choices=['keep', 'choose', 'default', *appearance.THEMES], default='keep')
+    parser.add_argument('--install-font', action='store_true', help='Install the bundled-choice Nerd Font without other dependency installs')
+    parser.add_argument('--skip-font', action='store_true', help='Keep your font installation unchanged')
+    parser.add_argument('--font-face', help='Use an existing Nerd Font family in the Yazi terminal profile')
+    parser.add_argument('--check-previews', action='store_true', help='Run read-only preview diagnostics and exit without installing or configuring anything')
     args = parser.parse_args()
+    if args.check_previews:
+        return subprocess.call([sys.executable, str(ROOT / 'scripts/check_previews.py')])
     if sys.version_info < (3, 11):
         parser.error('Python 3.11+ is required')
     if sys.platform not in ('win32', 'linux'):
@@ -359,12 +415,15 @@ def main():
     try:
         installer = Installer(args)
         installer.dependencies()
+        installer.configure()
+        installer.font_face = appearance.configure(installer)
         if installer.windows:
             installer.windows_environment()
-        installer.configure()
+        if args.install_dependencies:
+            installer.verify_previews()
         installer.launcher()
         installer.status()
-        return 2 if installer.package_failures else 0
+        return 2 if installer.package_failures or installer.setup_warnings else 0
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print(f'Setup failed: {exc}', file=sys.stderr)
         return 1

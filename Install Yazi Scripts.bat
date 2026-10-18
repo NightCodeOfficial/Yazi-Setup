@@ -6,7 +6,7 @@ cd /d "%~dp0"
 echo Starting combined Yazi setup and launcher installer...
 echo.
 
-"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0yazi-installer.ps1" -InstallYazi -InstallDependencies %*
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0yazi-installer.ps1" -InstallYazi -InstallDependencies -ChooseTheme %*
 set "result=%ERRORLEVEL%"
 
 echo.

@@ -184,7 +184,7 @@ class SetupTests(unittest.TestCase):
         args = argparse.Namespace(dry_run=True, install_dependencies=True, install_yazi=True)
         inst = setup.Installer(args)
         inst.windows = True
-        with patch.object(setup.shutil, 'which', return_value='winget'), patch.object(inst, 'find_command', side_effect=lambda p: None if p in ['yazi', '7z'] else p), patch.object(inst, 'run') as run:
+        with patch.object(setup.shutil, 'which', return_value='winget'), patch.object(setup.appearance, 'windows_terminal_version', return_value=(1, 24, 0, 0)), patch.object(inst, 'find_command', side_effect=lambda p: None if p in ['yazi', '7z'] else p), patch.object(inst, 'run') as run:
             inst.dependencies()
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(len(commands), 2)

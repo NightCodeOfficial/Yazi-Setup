@@ -20,3 +20,16 @@ jobs:
       - if: runner.os == 'Windows'
         shell: powershell
         run: ./tests/check-windows.ps1
+  fresh-linux-previews:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Yazi, preview tools, font and Tokyo Night
+        run: python setup.py --install-yazi --install-dependencies --theme tokyo-night
+      - name: Exercise real preview tools
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          python scripts/check_previews.py

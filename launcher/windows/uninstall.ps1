@@ -12,6 +12,10 @@ if ([string]::IsNullOrWhiteSpace($programsDir)) {
 
 $installDir = Join-Path $localAppData 'YaziLauncher'
 $shortcutPath = Join-Path $programsDir 'Yazi Launcher.lnk'
+$fragmentPath = Join-Path $localAppData 'Microsoft\Windows Terminal\Fragments\YaziSetup\yazi.json'
+if (Test-Path -LiteralPath $fragmentPath -PathType Leaf) {
+    Remove-Item -LiteralPath $fragmentPath -Force
+}
 
 if (Test-Path -LiteralPath $shortcutPath) {
     Remove-Item -LiteralPath $shortcutPath -Force
